@@ -24,6 +24,12 @@ export default function GanttChart({ nodes, edges, onScheduleChange }: GanttChar
 
   const tasks = useMemo(() => buildGanttTasks(nodes, edges), [nodes, edges]);
   const prevTasksRef = useRef<typeof tasks>([]);
+  // frappe-gantt 自身が発火した date_change/progress_change の値を覚えておき、
+  // それをそのまま update_task で書き戻さないようにするための記録。
+  // frappe-gantt はドラッグ中、日付が1日変わるたびに on_date_change を発火するが、
+  // そのたびに update_task でバー要素を作り直すとドラッグ中のDOM操作が中断され、
+  // 「1日動かすたびにドラッグが途切れる」問題になっていた。
+  const lastEmittedRef = useRef<Map<string, { start: string; end: string; progress: number }>>(new Map());
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -37,12 +43,21 @@ export default function GanttChart({ nodes, edges, onScheduleChange }: GanttChar
         padding: 14,
         today_button: true,
         on_date_change: (task, start, end) => {
-          onScheduleChangeRef.current(task.id, {
-            start: toISODate(start),
-            end: toISODate(end),
+          const patch = { start: toISODate(start), end: toISODate(end) };
+          lastEmittedRef.current.set(task.id, {
+            start: patch.start,
+            end: patch.end,
+            progress: task.progress ?? 0,
           });
+          onScheduleChangeRef.current(task.id, patch);
         },
         on_progress_change: (task, progress) => {
+          const prev = lastEmittedRef.current.get(task.id);
+          lastEmittedRef.current.set(task.id, {
+            start: prev?.start ?? task.start,
+            end: prev?.end ?? task.end,
+            progress,
+          });
           onScheduleChangeRef.current(task.id, { progress });
         },
       });
@@ -55,13 +70,26 @@ export default function GanttChart({ nodes, edges, onScheduleChange }: GanttChar
         // 同じタスク集合の日付/進捗だけの更新なら、update_task でスクロール位置を保ったまま反映する。
         tasks.forEach((task, i) => {
           const prev = prevTasks[i];
-          if (prev.start !== task.start || prev.end !== task.end || prev.progress !== task.progress) {
-            ganttRef.current!.update_task(task.id, task);
+          if (prev.start === task.start && prev.end === task.end && prev.progress === task.progress) {
+            return;
           }
+          const echoed = lastEmittedRef.current.get(task.id);
+          const isEcho =
+            !!echoed &&
+            echoed.start === task.start &&
+            echoed.end === task.end &&
+            echoed.progress === task.progress;
+          if (isEcho) {
+            // このタスク自身のドラッグ操作で生まれた変更 → frappe-gantt側は既に最新表示なので触らない
+            lastEmittedRef.current.delete(task.id);
+            return;
+          }
+          ganttRef.current!.update_task(task.id, task);
         });
       } else {
         // ノードの追加/削除など構造が変わった場合は全体を再構築する。
         ganttRef.current.refresh(tasks);
+        lastEmittedRef.current.clear();
       }
     }
     prevTasksRef.current = tasks;
