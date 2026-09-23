@@ -1,0 +1,32 @@
+/* GitHub Projects roadmap 風の軽量な上書きテーマ。
+   frappe-gantt 本体の CSS カスタムプロパティ (--g-*) を上書きするだけで、
+   依存関係の矢印は tasks に dependencies を渡さないことで非表示にしている。 */
+.gantt-github-theme {
+  --g-bar-color: #218bff;
+  --g-bar-border: #1a7fe0;
+  --g-progress-color: #a8d2ff;
+  --g-today-highlight: #bf3989;
+  --g-row-border-color: #e8ebef;
+  --g-border-color: #eef1f4;
+  --g-tick-color: #f5f6f8;
+  --g-tick-color-thick: #edeff2;
+  --g-weekend-highlight-color: #f6f8fa;
+}
+
+.gantt-github-theme .gantt-container {
+  border-radius: 10px;
+}
+
+.gantt-github-theme .gantt .bar-wrapper .bar {
+  outline: none;
+  border-radius: 6px;
+}
+
+.gantt-github-theme .gantt .bar-label {
+  fill: #ffffff;
+  font-weight: 500;
+}
+
+.gantt-github-theme .gantt .bar-label.big {
+  fill: var(--g-text-dark);
+}

@@ -3,6 +3,9 @@ import type { Edge, Node } from "reactflow";
 export type MindMapNodeStoredData = {
   label: string;
   collapsed?: boolean;
+  start?: string; // "YYYY-MM-DD"
+  end?: string; // "YYYY-MM-DD"
+  progress?: number; // 0-100
 };
 
 export type MindMapNode = Node<MindMapNodeStoredData>;
@@ -150,8 +153,27 @@ export function updateLabel(
   return nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, label } } : n));
 }
 
+export function updateSchedule(
+  nodes: MindMapNode[],
+  id: string,
+  schedule: { start?: string; end?: string; progress?: number }
+): MindMapNode[] {
+  return nodes.map((n) => (n.id === id ? { ...n, data: { ...n.data, ...schedule } } : n));
+}
+
 export function clearSelection(nodes: MindMapNode[]): MindMapNode[] {
   return deselectAll(nodes);
+}
+
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function sanitizeDate(value: unknown): string | undefined {
+  return typeof value === "string" && ISO_DATE_RE.test(value) ? value : undefined;
+}
+
+function sanitizeProgress(value: unknown): number | undefined {
+  if (typeof value !== "number" || Number.isNaN(value)) return undefined;
+  return Math.min(100, Math.max(0, Math.round(value)));
 }
 
 export function sanitizeGraph(input: unknown): { nodes: MindMapNode[]; edges: Edge[] } | null {
@@ -171,6 +193,9 @@ export function sanitizeGraph(input: unknown): { nodes: MindMapNode[]; edges: Ed
         data: {
           label: typeof data.label === "string" && data.label.trim() ? data.label : "無題",
           collapsed: Boolean(data.collapsed),
+          start: sanitizeDate(data.start),
+          end: sanitizeDate(data.end),
+          progress: sanitizeProgress(data.progress),
         },
       };
     });
